@@ -10,7 +10,6 @@ import joblib
 def load_data(path="data/train.csv"):
     df = pd.read_csv(path)
     return df
-
 def feature_engineering(df):
     # Example feature engineering for Titanic
     df = df.copy()
