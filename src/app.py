@@ -1,39 +1,46 @@
-import streamlit as st
+# app.py
+import os
 import joblib
+import streamlit as st
 import pandas as pd
 
-st.title("Titanic Survival Predictor")
+# Paths
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "../models/pipeline_rf_tuned.pkl")
 
-# Load pipeline
-import os
-pipe = joblib.load(os.path.join(os.path.dirname(__file__), "../models/pipeline_rf_tuned.pkl"))
+st.title("Titanic Survival Prediction App")
 
+# Step 1 — Check if model exists
+if not os.path.exists(MODEL_PATH):
+    st.error(f"Model file not found: {MODEL_PATH}")
+    st.stop()
 
-# Create input widgets
-st.sidebar.header("Passenger features")
-pclass = st.sidebar.selectbox("Pclass", [1,2,3], index=2)
-sex = st.sidebar.selectbox("Sex", ["male","female"])
-age = st.sidebar.number_input("Age", value=30, min_value=0, max_value=100)
-sibsp = st.sidebar.number_input("SibSp", value=0, min_value=0, max_value=10)
-parch = st.sidebar.number_input("Parch", value=0, min_value=0, max_value=10)
-fare = st.sidebar.number_input("Fare", value=32.2, min_value=0.0)
-embarked = st.sidebar.selectbox("Embarked", ["S","C","Q"])
-title = st.sidebar.selectbox("Title", ["Mr","Mrs","Miss","Master","Rare"])
-family_size = sibsp + parch + 1
-is_alone = 1 if family_size == 1 else 0
+# Step 2 — Load model
+pipe = joblib.load(MODEL_PATH)
 
-input_df = pd.DataFrame([{
-    'Pclass': pclass, 'Sex': sex, 'Age': age, 'SibSp': sibsp, 'Parch': parch,
-    'Fare': fare, 'Embarked': embarked, 'Title': title, 'FamilySize': family_size, 'IsAlone': is_alone
-}])
+# Step 3 — User input
+st.sidebar.header("Passenger Data")
+Pclass = st.sidebar.selectbox("Pclass", [1, 2, 3])
+Sex = st.sidebar.selectbox("Sex", ["male", "female"])
+Age = st.sidebar.slider("Age", 0, 80, 30)
+SibSp = st.sidebar.slider("SibSp", 0, 5, 0)
+Parch = st.sidebar.slider("Parch", 0, 5, 0)
+Fare = st.sidebar.number_input("Fare", min_value=0.0, value=32.2)
+Embarked = st.sidebar.selectbox("Embarked", ["C", "Q", "S"])
 
-st.write("Input sample:")
-st.write(input_df)
+# Step 4 — Predict button
+if st.button("Predict Survival"):
+    input_df = pd.DataFrame({
+        "Pclass": [Pclass],
+        "Sex": [Sex],
+        "Age": [Age],
+        "SibSp": [SibSp],
+        "Parch": [Parch],
+        "Fare": [Fare],
+        "Embarked": [Embarked]
+    })
 
-if st.button("Predict survival"):
-    pred = pipe.predict(input_df)[0]
-    proba = pipe.predict_proba(input_df)[0,1] if hasattr(pipe, "predict_proba") else None
-    if pred == 1:
-        st.success(f"Predicted: SURVIVED (prob={proba:.2f})" if proba is not None else "Predicted: SURVIVED")
-    else:
-        st.error(f"Predicted: NOT SURVIVE (prob={proba:.2f})" if proba is not None else "Predicted: NOT SURVIVE")
+    prediction = pipe.predict(input_df)[0]
+    prob = pipe.predict_proba(input_df)[0][prediction]
+
+    st.write(f"**Prediction:** {'Survived' if prediction == 1 else 'Did not survive'}")
+    st.write(f"**Probability:** {prob:.2f}")
