@@ -5,7 +5,9 @@ import pandas as pd
 st.title("Titanic Survival Predictor")
 
 # Load pipeline
-pipe = joblib.load("models/pipeline_rf_tuned.pkl")  # or pipeline_rf.pkl
+import os
+pipe = joblib.load(os.path.join(os.path.dirname(__file__), "../models/pipeline_rf_tuned.pkl"))
+
 
 # Create input widgets
 st.sidebar.header("Passenger features")
