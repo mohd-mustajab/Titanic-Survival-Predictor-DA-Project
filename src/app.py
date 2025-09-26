@@ -4,7 +4,7 @@ import pandas as pd
 import joblib
 import os
 
-MODEL_PATH = "models/best_model.pkl"
+MODEL_PATH = "models/titanic_model.pkl"
 SCALER_PATH = "models/scaler.pkl"
 ENCODER_SEX_PATH = "models/encoder_sex.pkl"
 ENCODER_EMBARKED_PATH = "models/encoder_embarked.pkl"
@@ -49,22 +49,21 @@ if st.button("🔮 Predict Survival Probability"):
         "Embarked": [embarked]
     })
 
-    # Encode categorical with saved LabelEncoders
+    # Encode categorical
     input_data['Sex'] = le_sex.transform(input_data['Sex'])
     input_data['Embarked'] = le_embarked.transform(input_data['Embarked'])
 
     # Scale
     input_scaled = scaler.transform(input_data)
 
-    # Get survival probability
-    prob = model.predict_proba(input_scaled)[0][1]  # probability of survival
-
-    # Display probability as percentage
+    # Survival probability
+    prob = model.predict_proba(input_scaled)[0][1]
     prob_percent = prob * 100
+
+    # Display result with color-coded chance
     st.subheader("Prediction Result")
     st.write(f"⚡ Survival Probability: **{prob_percent:.2f}%**")
 
-    # Color-coded bar
     if prob > 0.7:
         st.success("🟢 High chance of survival")
         st.progress(prob)
@@ -73,3 +72,4 @@ if st.button("🔮 Predict Survival Probability"):
         st.progress(prob)
     else:
         st.error("🔴 Low chance of survival")
+        st.progress(prob)
