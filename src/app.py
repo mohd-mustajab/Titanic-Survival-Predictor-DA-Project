@@ -1,49 +1,58 @@
-import os
-import joblib
-import pandas as pd
+# src/app.py
 import streamlit as st
+import pandas as pd
+import joblib
+import os
 
-# Path to your saved model
-MODEL_PATH = os.path.join("models", "pipeline_rf_tuned.pkl")
+from preprocessing import encode_features
 
-# Load the model
-try:
-    pipe = joblib.load(MODEL_PATH)
-except Exception as e:
-    st.error(f"Error loading model: {e}")
-    pipe = None
+MODEL_PATH = "models/best_model.pkl"
+SCALER_PATH = "models/scaler.pkl"
 
-st.title("🚢 Titanic Survival Predictor")
+st.title("🚢 Titanic Survival Prediction")
 
-# Input fields
-pclass = st.selectbox("Passenger Class (1 = 1st, 2 = 2nd, 3 = 3rd)", [1, 2, 3])
-sex = st.selectbox("Sex", ["male", "female"])
-age = st.slider("Age", 0, 80, 25)
-sibsp = st.number_input("Siblings/Spouses Aboard", 0, 10, 0)
-parch = st.number_input("Parents/Children Aboard", 0, 10, 0)
-fare = st.number_input("Fare", 0.0, 500.0, 32.0)
-embarked = st.selectbox("Port of Embarkation", ["C", "Q", "S"])
+# Load model and scaler
+if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
+    model = joblib.load(MODEL_PATH)
+    scaler = joblib.load(SCALER_PATH)
+else:
+    st.error("❌ Model not found. Please train the model first using train.py")
+    st.stop()
 
-# Convert to DataFrame
-input_data = pd.DataFrame([{
-    "Pclass": pclass,
-    "Sex": sex,
-    "Age": age,
-    "SibSp": sibsp,
-    "Parch": parch,
-    "Fare": fare,
-    "Embarked": embarked
-}])
+# User input
+st.sidebar.header("Enter Passenger Details")
+
+pclass = st.sidebar.selectbox("Passenger Class (1 = 1st, 2 = 2nd, 3 = 3rd)", [1, 2, 3])
+sex = st.sidebar.selectbox("Sex", ["male", "female"])
+age = st.sidebar.slider("Age", 0, 80, 25)
+sibsp = st.sidebar.number_input("Number of Siblings/Spouses Aboard", 0, 10, 0)
+parch = st.sidebar.number_input("Number of Parents/Children Aboard", 0, 10, 0)
+fare = st.sidebar.number_input("Fare", 0.0, 500.0, 32.0)
+embarked = st.sidebar.selectbox("Port of Embarkation", ["S", "C", "Q"])
+
+# Prepare input data
+input_data = pd.DataFrame({
+    "Pclass": [pclass],
+    "Sex": [sex],
+    "Age": [age],
+    "SibSp": [sibsp],
+    "Parch": [parch],
+    "Fare": [fare],
+    "Embarked": [embarked]
+})
+
+# Encode categorical
+input_data = encode_features(input_data)
+
+# Scale
+input_scaled = scaler.transform(input_data)
 
 # Prediction
-if st.button("Predict Survival"):
-    if pipe is not None:
-        prediction = pipe.predict(input_data)[0]
-        prob = pipe.predict_proba(input_data)[0][1]
+prediction = model.predict(input_scaled)[0]
+prob = model.predict_proba(input_scaled)[0][1]
 
-        if prediction == 1:
-            st.success(f"✅ Survived (Probability: {prob:.2f})")
-        else:
-            st.error(f"❌ Did Not Survive (Probability: {prob:.2f})")
-    else:
-        st.error("Model pipeline is not loaded. Please check MODEL_PATH.")
+st.subheader("Prediction Result")
+if prediction == 1:
+    st.success(f"✅ Passenger likely SURVIVED (Probability: {prob:.2f})")
+else:
+    st.error(f"❌ Passenger likely DID NOT SURVIVE (Probability: {prob:.2f})")
