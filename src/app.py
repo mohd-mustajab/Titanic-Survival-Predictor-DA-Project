@@ -1,46 +1,49 @@
-# app.py
 import os
 import joblib
-import streamlit as st
 import pandas as pd
+import streamlit as st
 
-# Paths
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "../models/pipeline_rf_tuned.pkl")
+# Path to your saved model
+MODEL_PATH = os.path.join("models", "pipeline_rf_tuned.pkl")
 
-st.title("Titanic Survival Prediction App")
+# Load the model
+try:
+    pipe = joblib.load(MODEL_PATH)
+except Exception as e:
+    st.error(f"Error loading model: {e}")
+    pipe = None
 
-# Step 1 — Check if model exists
-if not os.path.exists(MODEL_PATH):
-    st.error(f"Model file not found: {MODEL_PATH}")
-    st.stop()
+st.title("🚢 Titanic Survival Predictor")
 
-# Step 2 — Load model
-pipe = joblib.load(MODEL_PATH)
+# Input fields
+pclass = st.selectbox("Passenger Class (1 = 1st, 2 = 2nd, 3 = 3rd)", [1, 2, 3])
+sex = st.selectbox("Sex", ["male", "female"])
+age = st.slider("Age", 0, 80, 25)
+sibsp = st.number_input("Siblings/Spouses Aboard", 0, 10, 0)
+parch = st.number_input("Parents/Children Aboard", 0, 10, 0)
+fare = st.number_input("Fare", 0.0, 500.0, 32.0)
+embarked = st.selectbox("Port of Embarkation", ["C", "Q", "S"])
 
-# Step 3 — User input
-st.sidebar.header("Passenger Data")
-Pclass = st.sidebar.selectbox("Pclass", [1, 2, 3])
-Sex = st.sidebar.selectbox("Sex", ["male", "female"])
-Age = st.sidebar.slider("Age", 0, 80, 30)
-SibSp = st.sidebar.slider("SibSp", 0, 5, 0)
-Parch = st.sidebar.slider("Parch", 0, 5, 0)
-Fare = st.sidebar.number_input("Fare", min_value=0.0, value=32.2)
-Embarked = st.sidebar.selectbox("Embarked", ["C", "Q", "S"])
+# Convert to DataFrame
+input_data = pd.DataFrame([{
+    "Pclass": pclass,
+    "Sex": sex,
+    "Age": age,
+    "SibSp": sibsp,
+    "Parch": parch,
+    "Fare": fare,
+    "Embarked": embarked
+}])
 
-# Step 4 — Predict button
+# Prediction
 if st.button("Predict Survival"):
-    input_df = pd.DataFrame({
-        "Pclass": [Pclass],
-        "Sex": [Sex],
-        "Age": [Age],
-        "SibSp": [SibSp],
-        "Parch": [Parch],
-        "Fare": [Fare],
-        "Embarked": [Embarked]
-    })
+    if pipe is not None:
+        prediction = pipe.predict(input_data)[0]
+        prob = pipe.predict_proba(input_data)[0][1]
 
-    prediction = pipe.predict(input_df)[0]
-    prob = pipe.predict_proba(input_df)[0][prediction]
-
-    st.write(f"**Prediction:** {'Survived' if prediction == 1 else 'Did not survive'}")
-    st.write(f"**Probability:** {prob:.2f}")
+        if prediction == 1:
+            st.success(f"✅ Survived (Probability: {prob:.2f})")
+        else:
+            st.error(f"❌ Did Not Survive (Probability: {prob:.2f})")
+    else:
+        st.error("Model pipeline is not loaded. Please check MODEL_PATH.")

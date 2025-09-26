@@ -1,70 +1,79 @@
-# train_models.py
 import os
-import pandas as pd
 import joblib
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
+import pandas as pd
+import streamlit as st
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
+
+# Import your preprocessing pipeline builder
+from preprocess import build_preprocessing_pipeline
 
 # Paths
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_PATH = os.path.join(BASE_DIR, "data", "train.csv")
-MODEL_DIR = os.path.join(BASE_DIR, "models")
-os.makedirs(MODEL_DIR, exist_ok=True)
-MODEL_PATH = os.path.join(MODEL_DIR, "pipeline_rf_tuned.pkl")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "../models/pipeline_rf_tuned.pkl")
+DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/titanic_synthetic_dirty.csv")
 
-# Step 1 — Load dataset
-df = pd.read_csv(DATA_PATH)
+# Function to train and save the model
+def train_and_save_model():
+    st.warning("Model not found or incompatible. Retraining... ⏳")
 
-# Step 2 — Define features
-num_features = ["Age", "Fare", "SibSp", "Parch"]
-cat_features = ["Sex", "Embarked", "Pclass"]
+    # Load dataset
+    df = pd.read_csv(DATA_PATH)
 
-X = df[num_features + cat_features]
-y = df['Survived']
+    X = df.drop("Survived", axis=1)
+    y = df["Survived"]
 
-# Step 3 — Train/test split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
 
-# Step 4 — Preprocessing
-num_transformer = Pipeline(steps=[
-    ('imputer', SimpleImputer(strategy='median')),
-    ('scaler', StandardScaler())
-])
+    # Preprocessing + Model
+    preprocessor, num_feats, cat_feats = build_preprocessing_pipeline(df)
+    pipe = preprocessor
+    pipe.named_steps["classifier"] = RandomForestClassifier(random_state=42)
 
-cat_transformer = Pipeline(steps=[
-    ('imputer', SimpleImputer(strategy='most_frequent')),
-    ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
-])
+    # Train
+    pipe.fit(X_train, y_train)
 
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('num', num_transformer, num_features),
-        ('cat', cat_transformer, cat_features)
-    ]
+    # Save model
+    os.makedirs(os.path.join(os.path.dirname(__file__), "../models"), exist_ok=True)
+    joblib.dump(pipe, MODEL_PATH)
+    st.success("Model retrained and saved successfully ✅")
+    return pipe
+
+
+# Try loading model, retrain if error
+try:
+    pipe = joblib.load(MODEL_PATH)
+except Exception as e:
+    st.error(f"Error loading model: {e}")
+    pipe = train_and_save_model()
+
+
+# ---------------- Streamlit UI ----------------
+st.title("🚢 Titanic Survival Predictor")
+
+st.write("Enter passenger details below to predict survival:")
+
+pclass = st.selectbox("Passenger Class", [1, 2, 3])
+sex = st.selectbox("Sex", ["male", "female"])
+age = st.slider("Age", 0, 80, 25)
+sibsp = st.slider("Siblings/Spouses Aboard", 0, 8, 0)
+parch = st.slider("Parents/Children Aboard", 0, 6, 0)
+fare = st.slider("Fare", 0, 500, 50)
+embarked = st.selectbox("Port of Embarkation", ["C", "Q", "S"])
+title = st.selectbox("Title", ["Mr", "Miss", "Mrs", "Master", "Other"])
+cabin = st.selectbox("Cabin", ["A", "B", "C", "D", "E", "F", "G", "T", "Unknown"])
+
+# Collect input
+input_data = pd.DataFrame(
+    [[pclass, sex, age, sibsp, parch, fare, embarked, title, cabin]],
+    columns=["Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked", "Title", "Cabin"],
 )
 
-# Step 5 — Model training
-pipe = Pipeline(steps=[
-    ('preprocessor', preprocessor),
-    ('classifier', RandomForestClassifier(random_state=42, n_estimators=100))
-])
-
-pipe.fit(X_train, y_train)
-
-# Step 6 — Evaluate
-y_pred = pipe.predict(X_test)
-print("Accuracy:", accuracy_score(y_test, y_pred))
-print("Precision:", precision_score(y_test, y_pred))
-print("Recall:", recall_score(y_test, y_pred))
-print("F1 Score:", f1_score(y_test, y_pred))
-print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
-
-# Step 7 — Save trained model
-joblib.dump(pipe, MODEL_PATH)
-print(f"Model saved at {MODEL_PATH}")
+# Predict
+if st.button("Predict Survival"):
+    prediction = pipe.predict(input_data)[0]
+    if prediction == 1:
+        st.success("🎉 The passenger is predicted to SURVIVE.")
+    else:
+        st.error("💀 The passenger is predicted NOT to survive.")
