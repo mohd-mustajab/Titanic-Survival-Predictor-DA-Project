@@ -72,4 +72,3 @@ if st.button("🔮 Predict Survival Probability"):
         st.progress(prob)
     else:
         st.error("🔴 Low chance of survival")
-        st.progress(prob)
