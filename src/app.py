@@ -4,55 +4,72 @@ import pandas as pd
 import joblib
 import os
 
-from preprocessing import encode_features
-
 MODEL_PATH = "models/best_model.pkl"
 SCALER_PATH = "models/scaler.pkl"
+ENCODER_SEX_PATH = "models/encoder_sex.pkl"
+ENCODER_EMBARKED_PATH = "models/encoder_embarked.pkl"
 
 st.title("🚢 Titanic Survival Prediction")
 
-# Load model and scaler
-if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
+# Load model, scaler, and encoders
+if all(os.path.exists(p) for p in [MODEL_PATH, SCALER_PATH, ENCODER_SEX_PATH, ENCODER_EMBARKED_PATH]):
     model = joblib.load(MODEL_PATH)
     scaler = joblib.load(SCALER_PATH)
+    le_sex = joblib.load(ENCODER_SEX_PATH)
+    le_embarked = joblib.load(ENCODER_EMBARKED_PATH)
 else:
-    st.error("❌ Model not found. Please train the model first using train.py")
+    st.error("❌ Model or encoders not found. Please train the model first.")
     st.stop()
 
-# User input
-st.sidebar.header("Enter Passenger Details")
+st.header("Enter Passenger Details")
 
-pclass = st.sidebar.selectbox("Passenger Class (1 = 1st, 2 = 2nd, 3 = 3rd)", [1, 2, 3])
-sex = st.sidebar.selectbox("Sex", ["male", "female"])
-age = st.sidebar.slider("Age", 0, 80, 25)
-sibsp = st.sidebar.number_input("Number of Siblings/Spouses Aboard", 0, 10, 0)
-parch = st.sidebar.number_input("Number of Parents/Children Aboard", 0, 10, 0)
-fare = st.sidebar.number_input("Fare", 0.0, 500.0, 32.0)
-embarked = st.sidebar.selectbox("Port of Embarkation", ["S", "C", "Q"])
+col1, col2 = st.columns(2)
 
-# Prepare input data
-input_data = pd.DataFrame({
-    "Pclass": [pclass],
-    "Sex": [sex],
-    "Age": [age],
-    "SibSp": [sibsp],
-    "Parch": [parch],
-    "Fare": [fare],
-    "Embarked": [embarked]
-})
+with col1:
+    pclass = st.selectbox("Passenger Class", [1, 2, 3])
+    sex = st.selectbox("Sex", ["male", "female"])
+    age = st.slider("Age", 0, 80, 25)
+    sibsp = st.number_input("Number of Siblings/Spouses Aboard", 0, 10, 0)
 
-# Encode categorical
-input_data = encode_features(input_data)
+with col2:
+    parch = st.number_input("Number of Parents/Children Aboard", 0, 10, 0)
+    fare = st.number_input("Fare", 0.0, 500.0, 80.0)
+    embarked = st.selectbox("Port of Embarkation", ["S", "C", "Q"])
 
-# Scale
-input_scaled = scaler.transform(input_data)
+# Predict button
+if st.button("🔮 Predict Survival Probability"):
+    # Prepare input
+    input_data = pd.DataFrame({
+        "Pclass": [pclass],
+        "Sex": [sex],
+        "Age": [age],
+        "SibSp": [sibsp],
+        "Parch": [parch],
+        "Fare": [fare],
+        "Embarked": [embarked]
+    })
 
-# Prediction
-prediction = model.predict(input_scaled)[0]
-prob = model.predict_proba(input_scaled)[0][1]
+    # Encode categorical with saved LabelEncoders
+    input_data['Sex'] = le_sex.transform(input_data['Sex'])
+    input_data['Embarked'] = le_embarked.transform(input_data['Embarked'])
 
-st.subheader("Prediction Result")
-if prediction == 1:
-    st.success(f"✅ Passenger likely SURVIVED (Probability: {prob:.2f})")
-else:
-    st.error(f"❌ Passenger likely DID NOT SURVIVE (Probability: {prob:.2f})")
+    # Scale
+    input_scaled = scaler.transform(input_data)
+
+    # Get survival probability
+    prob = model.predict_proba(input_scaled)[0][1]  # probability of survival
+
+    # Display probability as percentage
+    prob_percent = prob * 100
+    st.subheader("Prediction Result")
+    st.write(f"⚡ Survival Probability: **{prob_percent:.2f}%**")
+
+    # Color-coded bar
+    if prob > 0.7:
+        st.success("🟢 High chance of survival")
+        st.progress(prob)
+    elif prob > 0.4:
+        st.warning("🟡 Medium chance of survival")
+        st.progress(prob)
+    else:
+        st.error("🔴 Low chance of survival")
