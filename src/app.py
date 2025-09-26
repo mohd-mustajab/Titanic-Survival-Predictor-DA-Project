@@ -66,9 +66,7 @@ if st.button("🔮 Predict Survival Probability"):
 
     if prob > 0.7:
         st.success("🟢 High chance of survival")
-        st.progress(prob)
     elif prob > 0.4:
         st.warning("🟡 Medium chance of survival")
-        st.progress(prob)
     else:
         st.error("🔴 Low chance of survival")
