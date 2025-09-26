@@ -49,31 +49,3 @@ except Exception as e:
     pipe = train_and_save_model()
 
 
-# ---------------- Streamlit UI ----------------
-st.title("🚢 Titanic Survival Predictor")
-
-st.write("Enter passenger details below to predict survival:")
-
-pclass = st.selectbox("Passenger Class", [1, 2, 3])
-sex = st.selectbox("Sex", ["male", "female"])
-age = st.slider("Age", 0, 80, 25)
-sibsp = st.slider("Siblings/Spouses Aboard", 0, 8, 0)
-parch = st.slider("Parents/Children Aboard", 0, 6, 0)
-fare = st.slider("Fare", 0, 500, 50)
-embarked = st.selectbox("Port of Embarkation", ["C", "Q", "S"])
-title = st.selectbox("Title", ["Mr", "Miss", "Mrs", "Master", "Other"])
-cabin = st.selectbox("Cabin", ["A", "B", "C", "D", "E", "F", "G", "T", "Unknown"])
-
-# Collect input
-input_data = pd.DataFrame(
-    [[pclass, sex, age, sibsp, parch, fare, embarked, title, cabin]],
-    columns=["Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked", "Title", "Cabin"],
-)
-
-# Predict
-if st.button("Predict Survival"):
-    prediction = pipe.predict(input_data)[0]
-    if prediction == 1:
-        st.success("🎉 The passenger is predicted to SURVIVE.")
-    else:
-        st.error("💀 The passenger is predicted NOT to survive.")
